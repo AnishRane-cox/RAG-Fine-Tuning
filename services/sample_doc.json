@@ -1,0 +1,22 @@
+[
+  {"id":"doc1", "text":"Hydraulic systems transfer energy using pressurized fluids."},
+  {"id":"doc2", "text":"FastAPI is a modern Python web framework for building APIs quickly."},
+  {"id":"doc3", "text":"LoRA adapters fine-tune large language models efficiently."},
+  {"id":"doc4", "text":"Electric vehicles use battery packs and electric motors for propulsion."},
+  {"id":"doc5", "text":"A turbocharger increases engine power by compressing intake air."},
+  {"id":"doc6", "text":"Diesel oxidation catalysts reduce harmful emissions in exhaust gases."},
+  {"id":"doc7", "text":"Predictive maintenance uses AI to prevent equipment failures."},
+  {"id":"doc8", "text":"MongoDB is a NoSQL database ideal for storing JSON-like documents."},
+  {"id":"doc9", "text":"FAISS allows efficient similarity search for high-dimensional vectors."},
+  {"id":"doc10", "text":"Python virtual environments isolate dependencies for each project."},
+  {"id":"doc11", "text":"Hydraulic pumps convert mechanical energy into fluid energy."},
+  {"id":"doc12", "text":"Sensors collect real-time data from industrial machines."},
+  {"id":"doc13", "text":"Node.js can orchestrate microservices and APIs effectively."},
+  {"id":"doc14", "text":"Data normalization ensures consistent input for AI models."},
+  {"id":"doc15", "text":"CoolProp library helps model thermodynamic properties of fluids."},
+  {"id":"doc16", "text":"Turbocharged engines increase air density entering the combustion chamber."},
+  {"id":"doc17", "text":"Docker containers package applications and dependencies together."},
+  {"id":"doc18", "text":"CI/CD pipelines automate testing, building, and deployment processes."},
+  {"id":"doc19", "text":"Prometheus collects metrics for monitoring applications and services."},
+  {"id":"doc20", "text":"Swagger UI provides interactive API documentation for developers."}
+]

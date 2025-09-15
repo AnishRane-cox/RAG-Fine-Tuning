@@ -1,0 +1,6 @@
+transformers==4.36.2
+datasets==2.12.0
+torch==2.2.0  # adjust to compatible torch for your platform; CPU-only works fine
+peft==0.4.0
+accelerate==0.22.0
+sentence-transformers==2.2.2  # optional if you reuse embedder code
