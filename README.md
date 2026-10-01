@@ -1,136 +1,129 @@
-README.md
-# LoRA + Embedding Service Demo
+# 🧩 RAG + LoRA Microservices — Retrieval-Augmented Chat with a Fine-Tuned Adapter
 
-This repository demonstrates a **LoRA-augmented language model** with a **document embedding & vector search service**, enabling context-aware question answering.
+![Python](https://img.shields.io/badge/Python-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-Express%20orchestrator-339933?style=flat-square&logo=nodedotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-Demo%20UI-61DAFB?style=flat-square&logo=react&logoColor=black)
+![HuggingFace](https://img.shields.io/badge/HF-PEFT%20%2F%20LoRA-FFD21E?style=flat-square&logo=huggingface&logoColor=black)
+![MongoDB](https://img.shields.io/badge/MongoDB%20Atlas-Vector%20Search-47A248?style=flat-square&logo=mongodb&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+
+> A small but **production-minded** RAG system split into independent services: a **sentence-transformer embedding + vector-search API**, a **LoRA-adapted language model API**, a **Node.js orchestrator**, and a **React chat UI** — all containerised.
+
+The focus is **system design**: clean service boundaries, swappable components (SOLID interfaces), and the trade-offs of fine-tuning vs. retrieval.
 
 ---
 
-## Architecture
-```
-         +--------------------+
-         | LoRA Model Service |
-         |  (FastAPI, 8080)  |
-         +--------------------+
-                   |
-          /generate, /load_adapter
-                   |
-                   v
-         +------------------------+
-         |  Inference Adapter     |
-         |  (PEFT, HuggingFace)  |
-         +------------------------+
-                   |
-                   v
-         +--------------------+
-         | Embedding Service  |
-         |  (FastAPI, 8081)  |
-         |  Mongo Vector DB   |
-         +--------------------+
-                   |
- /ingest, /embed, /search, /delete_stale
-                   |
-                   v
-        Context-aware Question Answering
+## 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    UI[React demo UI<br/>rag_demo] -->|POST /chat| O[Orchestrator<br/>Node.js · Express]
+    O -->|POST /search| E[Embedding service<br/>FastAPI]
+    E --> ST[all-MiniLM-L6-v2<br/>sentence-transformers]
+    E <--> DB[(MongoDB Atlas<br/>vector search · knn)]
+    O -->|POST /generate<br/>prompt + retrieved context| M[Model service<br/>FastAPI]
+    M --> L[distilgpt2 + LoRA adapter<br/>PEFT]
+    O -->|answer + sources| UI
 ```
 
+**Request flow:** question → embed & retrieve top-k documents → build an augmented prompt (*context + question*) → generate with the LoRA-adapted model → return the answer **with its source passages**.
 
----
+## 🧱 Services
 
-## Requirements
+| Service | Stack | Key endpoints | Responsibility |
+|---|---|---|---|
+| `embedding_service` | FastAPI, sentence-transformers, PyMongo | `/embed`, `/bulk_embed`, `/search`, `/delete_stale` | Embeds text, upserts vectors in batches, k-NN search, TTL-style housekeeping |
+| `model_service` | FastAPI, Transformers, PEFT | `/health`, `/generate`, `/load_adapter` | Serves `distilgpt2` + LoRA adapter; **hot-swaps adapters** at runtime |
+| `orchestrator_service` | Node.js, Express | `/chat`, `/health` | Retrieval → prompt building → generation; error handling per downstream call |
+| `rag_demo` | React | — | Minimal chat UI that shows the answer and its sources |
 
-- Python 3.10+  
-- `torch`, `transformers`, `peft`, `fastapi`, `uvicorn`, `pydantic`, `pymongo`  
-- MongoDB instance (local or Atlas)  
+`train_adapter.py` trains a **LoRA adapter** with PEFT on a small Q&A set (engineering + ML questions), CPU-friendly, and saves it for the model service to load.
 
----
+## 🧠 Design Choices & Trade-offs
 
-## Setup & Run Locally
+- **Abstract `Embedder` and `VectorStore` interfaces** → swap sentence-transformers for OpenAI embeddings, or MongoDB for FAISS/pgvector, without touching the API layer.
+- **LoRA vs. full fine-tuning** – LoRA trains only a small fraction of the weights, uses little memory and adapters load in seconds; retrieval supplies fresh facts while the adapter shapes tone and domain vocabulary.
+- **MongoDB Atlas vs. FAISS** – Atlas persists and scales horizontally; FAISS is faster in-memory but ephemeral.
+- **Batch embedding** reduces round-trips and DB write overhead.
+- **Latency** – `distilgpt2` keeps generation fast on CPU; a larger base model would improve answer quality at higher latency/cost.
 
-1. **Clone repo and create virtual environment:**
+## 🚀 Run Locally
+
+**1 · Configure** — create `.env` files (never commit them):
 
 ```bash
-git clone <repo-url>
-cd Lora_RAGII
-python -m venv .venv
-.venv\Scripts\activate      # Windows
-pip install -r requirements.txt
-```
-
-Set environment variables (or .env):
-```
-BASE_MODEL=distilgpt2
-ADAPTER_PATH=./inference_adapter
-MONGO_URI=mongodb://localhost:27017
+# services/embedding_service/app/.env
+MONGO_URI=mongodb+srv://<user>:<password>@<cluster>/   # your own Atlas URI
 MONGO_DB=rag
 MONGO_COLLECTION=documents
+MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+
+# services/orchestrator_service/.env
+PORT=3000
+EMBEDDING_URL=http://localhost:8080
+MODEL_URL=http://localhost:5000/generate
 ```
 
-# Run services:
-### LoRA Model Service
-```
-cd services/model_service
-uvicorn app:app --host 127.0.0.1 --port 8080 --reload
-```
-### Embedding Service
-```
-cd ../embedding_service
-uvicorn main:app --host 127.0.0.1 --port 8081 --reload
-```
-# API Specifications
+Create an Atlas **vector search index** on the `embedding` field.
 
-### LoRA Model Service (8080)
-```
-Endpoint	Method	Request Body	Response Example
-/health	GET	-	{ "status": "ok", "base_model": "distilgpt2" }
-/generate	POST	{ "prompt": "Hello AI!", "max_new_tokens": 32 }	{ "answer": "Generated text..." }
-/load_adapter	POST	{ "adapter_path": "./inference_adapter" }	{ "status": "ok", "adapter": "./inference_adapter" }
-```
-### Embedding Service (8081)
-```
-Endpoint	Method	Request Body	Response Example
-/GET	-	{ "status": "Embedding Service is running" }
-/ingest	POST	{ "documents": [{"id":"1","text":"..."}, ...] }	{ "status":"ok","count":3 }
-/embed	POST	{ "id":"4", "text":"..." }	{ "id":"4","embedding":[...float values...] }
-/bulk_embed	POST	{ "docs":[{"id":"1","text":"..."}, ...] }	{ "upserted":3,"processed":3 }
-/search	POST	{ "query":"ML and FastAPI", "k":3 }	{ "results":[{"id":"1","score":0.92,"text":"..."}] }
-/delete_stale	POST	{ "days":30 }	{ "deleted":2 }
-```
-# Demo Script (PowerShell / curl)
-### Ingest Documents
-```
-curl -X POST http://127.0.0.1:8081/ingest `
--H "Content-Type: application/json" `
--d '{
-  "documents":[
-    {"id":"1","text":"FastAPI is great for ML services"},
-    {"id":"2","text":"MongoDB vector search example"}
-  ]
-}'
-```
-### Generate Context-Aware Answer
-```
-curl -X POST http://127.0.0.1:8080/generate `
--H "Content-Type: application/json" `
--d '{"prompt":"Explain vector search in simple terms","max_new_tokens":64}'
+**2 · Start the services**
+
+```bash
+# Embedding service
+cd services/embedding_service/app
+pip install -r ../requirments fastapi uvicorn sentence-transformers pymongo certifi pydantic-settings python-dotenv
+uvicorn main:app --port 8080
+
+# Model service (train an adapter first, or use the base model)
+python train_adapter.py
+cd ../../model_service && uvicorn app:app --port 5000
+
+# Orchestrator
+cd ../orchestrator_service && npm install && npm start
+
+# UI
+cd ../rag_demo && npm install && npm start
 ```
 
-### Load LoRA Adapter
-```
-curl -X POST http://127.0.0.1:8080/load_adapter `
--H "Content-Type: application/json" `
--d '{"adapter_path":"./inference_adapter"}'
-```
-### Search Documents
-```
-curl -X POST http://127.0.0.1:8081/search `
--H "Content-Type: application/json" `
--d '{"query":"ML and FastAPI","k":3}'
+**3 · Try it**
+
+```bash
+curl -X POST http://localhost:8080/bulk_embed -H "Content-Type: application/json" \
+  -d '{"docs":[{"id":"1","text":"FastAPI is great for ML services"},{"id":"2","text":"MongoDB supports vector search"}]}'
+
+curl -X POST http://localhost:3000/chat -H "Content-Type: application/json" \
+  -d '{"query":"Which database supports vector search?","k":2}'
 ```
 
-# Tradeoffs, Scaling, Cost & Latency
+A `docker-compose.yml` is included for running the stack in containers.
 
-- LoRA adapter: lightweight fine-tuning, minimal GPU memory, fast to load.
-- Generation latency: small with DistilGPT2 base, can be slower for large models.
-- Embedding & vector search: Mongo Atlas scales horizontally; latency grows with index size.
-- Tradeoff: Using Mongo Atlas vs. FAISS in-memory — Atlas persists and scales, FAISS is faster but ephemeral.
-- Batch embedding reduces DB write overhead.
+## 📁 Repository Structure
+
+```
+services/
+├── embedding_service/app/   # FastAPI: embedders.py, vector_store.py, models.py, train_adapter.py
+├── model_service/           # FastAPI: LoRA inference (app.py, inference_adapter.py)
+├── orchestrator_service/    # Express: controllers/, services/ (embedding & model clients)
+├── rag_demo/                # React UI
+└── sample_doc.json          # Sample documents to ingest
+docker-compose.yml
+```
+
+## 🔭 Roadmap
+
+- Move all secrets to environment variables only; add `.env.example` files.
+- Align Docker Compose build paths/ports and add a Dockerfile for the model service.
+- Add retrieval evaluation (hit-rate / MRR) and response streaming.
+- Replace `distilgpt2` with an instruction-tuned small model (e.g. Qwen / Llama 3.2 1B) + QLoRA.
+
+---
+
+## 👤 Author
+
+**Anish Rane** — Data & AI Engineer · MSc Machine Learning & AI (LJMU) · Mechanical Engineer
+
+[![Portfolio](https://img.shields.io/badge/Portfolio-1D9E75?style=flat-square&logo=githubpages&logoColor=white)](https://anishrane-cox.github.io/Portfolio/)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/anish-rane/)
+[![GitHub](https://img.shields.io/badge/GitHub-AnishRane--cox-181717?style=flat-square&logo=github)](https://github.com/AnishRane-cox)
+
+⭐ If you found this useful, consider starring the repo.
