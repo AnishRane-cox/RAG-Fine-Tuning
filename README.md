@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-Express%20orchestrator-339933?style=flat-square&logo=nodedotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React-Demo%20UI-61DAFB?style=flat-square&logo=react&logoColor=black)
-![HuggingFace](https://img.shields.io/badge/HF-PEFT%20%2F%20LoRA-FFD21E?style=flat-square&logo=huggingface&logoColor=black)
+![HuggingFace](https://img.shields.io/badge/HF-PEFT%20%2F%20LoRA-FFD21E?style=flat-square)
 ![MongoDB](https://img.shields.io/badge/MongoDB%20Atlas-Vector%20Search-47A248?style=flat-square&logo=mongodb&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
 
